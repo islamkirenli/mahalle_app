@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mahalle_app/features/events/events_page.dart';
@@ -9,7 +10,7 @@ import 'features/post/new_post_page.dart';
 import 'features/profile/profile_page.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized(); 
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: MahalleApp()));
 }
 
@@ -30,6 +31,11 @@ class MahalleApp extends StatelessWidget {
       theme: buildAppTheme(),
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: child,
+      ),
     );
   }
 }
@@ -41,79 +47,130 @@ class RootScaffold extends StatefulWidget {
 }
 
 class _RootScaffoldState extends State<RootScaffold> {
-  int _index = 0;
+  /// Navigation bar index (0..4). 2 = Yeni Post (modal/route), seçili olarak tutulmaz.
+  int _navIndex = 0;
+
+  /// Gösterilecek sayfalar (Yeni Post bir sayfa sekmesi değil).
   final _pages = const [
-    HomePage(),      // 0: Akış
-    EventsPage(),    // 1: Etkinlik
-    MarketPage(),    // 2: Pazar
-    ProfilePage(),   // 3: Profil
+    HomePage(), // 0
+    EventsPage(), // 1
+    MarketPage(), // 2  (bar’da 3. ikon)
+    ProfilePage() // 3  (bar’da 5. ikon)
   ];
+
+  /// bar: [0:home, 1:events, 2:new, 3:market, 4:profile]  -> page: [-]
+  int _pageIndexForBar(int barIndex) {
+    if (barIndex <= 1) return barIndex; // 0,1 => 0,1
+    if (barIndex == 2) return -1; // Yeni Post
+    if (barIndex == 3) return 2; // Market
+    return 3; // 4 => Profile
+  }
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
+    final currentPageIndex = _pageIndexForBar(_navIndex) == -1
+        ? _pageIndexForBar(0)
+        : _pageIndexForBar(_navIndex);
+
+    final theme = Theme.of(context);
+
+    Color? iconColorFor(int barIdx) {
+      final isActive = _pageIndexForBar(barIdx) == currentPageIndex;
+      return isActive ? theme.colorScheme.primary : null;
+    }
+
+    IconData iconFor(int barIdx) {
+      switch (barIdx) {
+        case 0:
+          return (_pageIndexForBar(0) == currentPageIndex)
+              ? Icons.home_rounded
+              : Icons.home_outlined;
+        case 1:
+          return (_pageIndexForBar(1) == currentPageIndex)
+              ? Icons.event_rounded
+              : Icons.event_outlined;
+        case 2: // Yeni Post (her zaman aynı ikon)
+          return Icons.add_circle;
+        case 3:
+          return (_pageIndexForBar(3) == currentPageIndex)
+              ? Icons.storefront_rounded
+              : Icons.storefront_outlined;
+        case 4:
+          return (_pageIndexForBar(4) == currentPageIndex)
+              ? Icons.person_rounded
+              : Icons.person_outline_rounded;
+        default:
+          return Icons.circle;
+      }
+    }
+
+    void onTapBar(int i) {
+      HapticFeedback.selectionClick();
+      if (i == 2) {
+        // Yeni Post: route aç, seçimi değiştirme
+        HapticFeedback.mediumImpact();
+        context.push('/new');
+        return;
+      }
+      setState(() => _navIndex = i);
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Mahalle — Osmanağa')),
-      body: _pages[_index],
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly, // eşit aralık
-            children: [
-              // SOL TARAF
-              IconButton(
-                tooltip: 'Akış',
-                icon: Icon(
-                  _index == 0 ? Icons.home : Icons.home_outlined,
-                  color: _index == 0 ? Theme.of(context).colorScheme.primary : null,
+      resizeToAvoidBottomInset: false,
+      body: _pages[currentPageIndex],
+      bottomNavigationBar: keyboardOpen
+          ? const SizedBox.shrink()
+          : SafeArea(
+              top: false,
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: theme.colorScheme.outlineVariant.withOpacity(0.4),
+                    ),
+                  ),
                 ),
-                onPressed: () => setState(() => _index = 0),
-              ),
-              IconButton(
-                tooltip: 'Etkinlik',
-                icon: Icon(
-                  _index == 1 ? Icons.event : Icons.event_outlined,
-                  color: _index == 1 ? Theme.of(context).colorScheme.primary : null,
+                child: Row(
+                  children: List.generate(5, (i) {
+                    // 5 buton, eşit genişlik için Expanded
+                    return Expanded(
+                      child: IconButton(
+                        padding:
+                            EdgeInsets.zero, // varsayılan 8px padding'i kaldır
+                        alignment: Alignment.center, // tam ortaya hizala
+                        constraints: const BoxConstraints(
+                          // dikeyde 64px'e oturt
+                          minWidth: 64,
+                          minHeight: 64,
+                        ),
+                        tooltip: i == 0
+                            ? 'Ana Sayfa'
+                            : i == 1
+                                ? 'Etkinlik'
+                                : i == 2
+                                    ? 'Yeni Post'
+                                    : i == 3
+                                        ? 'Pazar'
+                                        : 'Profil',
+                        onPressed: () => onTapBar(i),
+                        icon: Icon(
+                          iconFor(i),
+                          size: i == 2 ? 60 : 30, // boyutlar aynı kalıyor
+                          color: i == 2
+                              ? theme.colorScheme.primary
+                              : iconColorFor(i),
+                        ),
+                      ),
+                    );
+                  }),
                 ),
-                onPressed: () => setState(() => _index = 1),
               ),
-
-              // ORTAK BOŞLUK (FAB için yer ayır)
-              const SizedBox(width: 56), // FAB çapı kadar boşluk (default FAB ~56)
-
-              // SAĞ TARAF
-              IconButton(
-                tooltip: 'Pazar',
-                icon: Icon(
-                  _index == 2 ? Icons.storefront : Icons.storefront_outlined,
-                  color: _index == 2 ? Theme.of(context).colorScheme.primary : null,
-                ),
-                onPressed: () => setState(() => _index = 2),
-              ),
-              IconButton(
-                tooltip: 'Profil',
-                icon: Icon(
-                  _index == 3 ? Icons.person : Icons.person_outline,
-                  color: _index == 3 ? Theme.of(context).colorScheme.primary : null,
-                ),
-                onPressed: () => setState(() => _index = 3),
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        width: 64,
-        height: 64,
-        child: FloatingActionButton(
-          shape: const CircleBorder(), // daire
-          onPressed: () => context.push('/new'),
-          child: const Icon(Icons.add, size: 28),
-        ),
-      ),
+            ),
     );
   }
 }
