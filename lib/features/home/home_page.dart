@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mahalle_app/features/notifications/notifications_page.dart';
+import 'package:mahalle_app/features/messages/messages_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -46,11 +48,38 @@ class HomePage extends StatelessWidget {
       ),
     ];
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-      itemCount: demoPosts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, i) => PostCard(post: demoPosts[i]),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Mahalle"),
+        actions: [
+          IconButton(
+            tooltip: "Bildirimler",
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const NotificationsPage()),
+              );
+            },
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+
+// Mesajlar butonu
+          IconButton(
+            tooltip: "Mesajlar",
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MessagesPage()),
+              );
+            },
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+          ),
+        ],
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+        itemCount: demoPosts.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => PostCard(post: demoPosts[i]),
+      ),
     );
   }
 }
