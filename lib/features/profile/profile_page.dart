@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -337,17 +339,19 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('İptal'),
           ),
           FilledButton(
-            style:
-                FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Çıkış yap'),
           ),
         ],
       ),
     );
+
     if (ok == true) {
-      _snack('Çıkış yapıldı (demoda).');
-      // TODO: auth signOut + yönlendirme
+      await Supabase.instance.client.auth.signOut();
+      if (mounted) context.go('/login');
     }
   }
 
@@ -499,7 +503,8 @@ class _ProfileHeader extends StatelessWidget {
                           ? Icons.verified_rounded
                           : Icons.verified_outlined,
                     ),
-                    label: Text(addressVerified ? 'Adres doğrulandı' : 'Adres doğrula'),
+                    label: Text(
+                        addressVerified ? 'Adres doğrulandı' : 'Adres doğrula'),
                     onPressed: onVerifyAddress,
                   ),
                 ),

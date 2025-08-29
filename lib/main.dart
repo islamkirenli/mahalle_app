@@ -8,15 +8,41 @@ import 'core/theme.dart';
 import 'features/home/home_page.dart';
 import 'features/post/new_post_page.dart';
 import 'features/profile/profile_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/supabase_keys.dart';
+import 'features/auth/login_page.dart';
+import 'features/auth/auth_notifier.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
+  );
+
   runApp(const ProviderScope(child: MahalleApp()));
 }
 
+final _authNotifier = AuthNotifier();
+
 final _router = GoRouter(
+  initialLocation: '/',
+  refreshListenable: _authNotifier,
+  redirect: (context, state) {
+    final session = Supabase.instance.client.auth.currentSession;
+    final loggedIn = session != null;
+    final goingToLogin = state.matchedLocation == '/login';
+    if (!loggedIn && !goingToLogin) return '/login';
+    if (loggedIn && goingToLogin) return '/';
+    return null;
+  },
   routes: [
     GoRoute(path: '/', builder: (_, __) => const RootScaffold()),
+    GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
     GoRoute(path: '/new', builder: (_, __) => const NewPostPage()),
     GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
   ],
