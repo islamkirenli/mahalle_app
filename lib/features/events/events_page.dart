@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mahalle_app/features/events/widgets/events_calendar_sheet.dart';
 
 class EventsPage extends StatelessWidget {
   const EventsPage({super.key});
@@ -23,7 +24,18 @@ class EventsPage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: "Takvim",
-            onPressed: () {},
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                showDragHandle: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (_) => EventsCalendarSheet(events: demoEvents),
+              );
+            },
             icon: const Icon(Icons.calendar_month_outlined),
           ),
         ],
@@ -175,8 +187,7 @@ class _EventCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  Icon(Icons.place_outlined,
-                      size: 18, color: theme.hintColor),
+                  Icon(Icons.place_outlined, size: 18, color: theme.hintColor),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -201,8 +212,7 @@ class _EventCard extends StatelessWidget {
                       .map((t) => Chip(
                             label: Text(t),
                             visualDensity: VisualDensity.compact,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                           ))
                       .toList(),
                 ),
