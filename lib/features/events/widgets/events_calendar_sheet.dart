@@ -5,13 +5,14 @@ import 'package:flutter/material.dart';
 class EventsCalendarSheet extends StatefulWidget {
   const EventsCalendarSheet({super.key, required this.events});
 
-  final List<({
-    String title,
-    String date,
-    String location,
-    String cover,
-    List<String> tags,
-  })> events;
+  final List<
+      ({
+        String title,
+        String date,
+        String location,
+        String cover,
+        List<String> tags,
+      })> events;
 
   @override
   State<EventsCalendarSheet> createState() => _EventsCalendarSheetState();
@@ -23,30 +24,50 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
   DateTime? _selectedDay;
 
   static const _monthNamesTr = [
-    '', 'Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
-    'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'
+    '',
+    'Ocak',
+    'Şubat',
+    'Mart',
+    'Nisan',
+    'Mayıs',
+    'Haziran',
+    'Temmuz',
+    'Ağustos',
+    'Eylül',
+    'Ekim',
+    'Kasım',
+    'Aralık'
   ];
-  static const _weekdaysTr = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz']; // Pazartesi başlangıç
+  static const _weekdaysTr = [
+    'Pzt',
+    'Sal',
+    'Çar',
+    'Per',
+    'Cum',
+    'Cmt',
+    'Paz'
+  ]; // Pazartesi başlangıç
 
   @override
   void initState() {
     super.initState();
     _eventsByDay = _buildIndex(widget.events);
 
-    final firstKey = _eventsByDay.keys.isNotEmpty
-        ? (_eventsByDay.keys.toList()..sort()).first
-        : DateTime.now();
-    _month = DateTime(firstKey.year, firstKey.month, 1);
+    final now = DateTime.now();
+    _month = DateTime(now.year, now.month, 1);
+    _selectedDay = DateTime(now.year, now.month, now.day);
   }
 
   Map<DateTime, List<(String title, String time)>> _buildIndex(
-    List<({
-      String title,
-      String date,
-      String location,
-      String cover,
-      List<String> tags,
-    })> evts,
+    List<
+            ({
+              String title,
+              String date,
+              String location,
+              String cover,
+              List<String> tags,
+            })>
+        evts,
   ) {
     final map = <DateTime, List<(String, String)>>{};
     for (final e in evts) {
@@ -60,7 +81,7 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
       final month = int.parse(d[1]);
       final year = int.parse(d[2]);
 
-      final key = DateTime(year, month, day); 
+      final key = DateTime(year, month, day);
       (map[key] ??= []).add((e.title, timePart));
     }
     return map;
@@ -70,8 +91,8 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-    final firstWeekday = DateTime(_month.year, _month.month, 1).weekday; 
-    final leadingEmpty = (firstWeekday - 1) % 7; 
+    final firstWeekday = DateTime(_month.year, _month.month, 1).weekday;
+    final leadingEmpty = (firstWeekday - 1) % 7;
 
     Color dotColor(bool isSelected) =>
         isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.primary;
@@ -101,9 +122,26 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        '${_monthNamesTr[_month.month]} ${_month.year}',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: _showMonthYearPicker, // ← ay-yıl seçici
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_monthNamesTr[_month.month]} ${_month.year}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.expand_more, size: 20),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -130,7 +168,8 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                       child: Text(
                         _weekdaysTr[i],
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.hintColor, fontWeight: FontWeight.w600),
+                            color: theme.hintColor,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   );
@@ -180,17 +219,20 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                         border: Border.all(
                           color: hasEvents
                               ? theme.colorScheme.primary.withOpacity(.35)
-                              : theme.colorScheme.outlineVariant.withOpacity(.35),
+                              : theme.colorScheme.outlineVariant
+                                  .withOpacity(.35),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 4), // ↓ 6 → 4
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 4), // ↓ 6 → 4
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min, // ← overflow’u önler
                         children: [
                           Text(
                             '$day',
-                            style: theme.textTheme.bodyMedium?.copyWith( // ↓ bodyLarge → bodyMedium
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              // ↓ bodyLarge → bodyMedium
                               color: isSelected
                                   ? theme.colorScheme.onPrimary
                                   : theme.colorScheme.onSurface,
@@ -224,13 +266,17 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                   _selectedDay == null
                       ? 'Bir gün seçin'
                       : 'Etkinlikler — ${_selectedDay!.day.toString().padLeft(2, '0')}.${_selectedDay!.month.toString().padLeft(2, '0')}.${_selectedDay!.year}',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(height: 8),
 
               if (_selectedDay != null &&
-                  (_eventsByDay[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)]?.isEmpty ?? true))
+                  (_eventsByDay[DateTime(_selectedDay!.year,
+                              _selectedDay!.month, _selectedDay!.day)]
+                          ?.isEmpty ??
+                      true))
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -240,32 +286,44 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                   ),
                   child: Text(
                     'Bu gün için etkinlik bulunmuyor.',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.hintColor),
                   ),
                 ),
 
               if (_selectedDay != null &&
-                  (_eventsByDay[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)]?.isNotEmpty ?? false))
+                  (_eventsByDay[DateTime(_selectedDay!.year,
+                              _selectedDay!.month, _selectedDay!.day)]
+                          ?.isNotEmpty ??
+                      false))
                 ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _eventsByDay[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)]!.length,
+                  itemCount: _eventsByDay[DateTime(_selectedDay!.year,
+                          _selectedDay!.month, _selectedDay!.day)]!
+                      .length,
                   separatorBuilder: (_, __) => Divider(
-                    height: 1, color: theme.colorScheme.outlineVariant.withOpacity(.4),
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withOpacity(.4),
                   ),
                   itemBuilder: (_, i) {
-                    final (title, time) =
-                        _eventsByDay[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)]![i];
+                    final (title, time) = _eventsByDay[DateTime(
+                        _selectedDay!.year,
+                        _selectedDay!.month,
+                        _selectedDay!.day)]![i];
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary.withOpacity(.12),
-                        child: Icon(Icons.event, color: theme.colorScheme.primary),
+                        backgroundColor:
+                            theme.colorScheme.primary.withOpacity(.12),
+                        child:
+                            Icon(Icons.event, color: theme.colorScheme.primary),
                       ),
                       title: Text(title, style: theme.textTheme.bodyLarge),
                       subtitle: Text(
                         time.isEmpty ? 'Saat bilgisi yok' : time,
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.hintColor),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
@@ -279,6 +337,129 @@ class _EventsCalendarSheetState extends State<EventsCalendarSheet> {
                 ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showMonthYearPicker() {
+    final theme = Theme.of(context);
+    int tempYear = _month.year;
+    int tempMonth = _month.month;
+
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Yıl seçimi
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Önceki yıl',
+                        onPressed: () => setModalState(() => tempYear--),
+                        icon: const Icon(Icons.chevron_left_rounded),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            '$tempYear',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Sonraki yıl',
+                        onPressed: () => setModalState(() => tempYear++),
+                        icon: const Icon(Icons.chevron_right_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Ay seçimi (3 sütunlu grid)
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 3,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (_, i) {
+                      final m = i + 1;
+                      final isSelected = m == tempMonth;
+                      final isCurrentContextMonth =
+                          (m == _month.month && tempYear == _month.year);
+
+                      final bg = isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceContainerHighest;
+                      final fg = isSelected
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurface;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setModalState(() => tempMonth = m),
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isCurrentContextMonth
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant
+                                      .withOpacity(.35),
+                            ),
+                          ),
+                          child: Text(
+                            _monthNamesTr[m],
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: fg,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Onay
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _month = DateTime(tempYear, tempMonth, 1);
+                          _selectedDay = null; // ay değişince seçim sıfırlansın
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Uygula'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
