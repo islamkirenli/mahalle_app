@@ -10,15 +10,15 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Demo/veri durumları
-  String _name = 'Komşu Kullanıcı';
-  String _neighborhood = 'Kadıköy / Osmanağa';
-  String _bio = 'Mahallemde aktif, paylaşmayı seven bir komşu.';
+  bool _loading = true;
+  String _name = '';
+  String _neighborhood = '';
+  String _bio = '';
   bool _addressVerified = false;
 
   // Ayarlar
   bool _isPrivate = false;
-  bool _pushNotif = true;
+  bool _pushNotif = false;
   bool _emailNotif = false;
 
   // Sayaçlar
@@ -27,125 +27,191 @@ class _ProfilePageState extends State<ProfilePage> {
   int _following = 76;
 
   @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        setState(() => _loading = false);
+        return;
+      }
+
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select(
+              'display_name, district, bio, address_verified, is_private, notif_push, notif_email')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      setState(() {
+        _name = (row?['display_name'] as String?)?.trim().isNotEmpty == true
+            ? row!['display_name'] as String
+            : (user.email ?? 'Komşu Kullanıcı');
+        _neighborhood = (row?['district'] as String?) ?? '';
+        _bio = (row?['bio'] as String?) ?? '';
+        _addressVerified = (row?['address_verified'] as bool?) ?? false;
+        _isPrivate = (row?['is_private'] as bool?) ?? false;
+        _pushNotif = (row?['notif_push'] as bool?) ?? true;
+        _emailNotif = (row?['notif_email'] as bool?) ?? false;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        // Üst Profil Kartı
-        _ProfileHeader(
-          name: _name,
-          neighborhood: _neighborhood,
-          bio: _bio,
-          addressVerified: _addressVerified,
-          onEditAvatar: _onEditAvatar,
-          onEditProfile: _openEditProfileSheet,
-          onVerifyAddress: _openAddressSheet,
-        ),
-
-        const SizedBox(height: 16),
-
-        // Sayaçlar
-        _StatsRow(
-          posts: _posts,
-          followers: _followers,
-          following: _following,
-        ),
-
-        const SizedBox(height: 16),
-
-        // Hesap bölüm başlığı
-        _SectionHeader(title: 'Hesap'),
-
-        ListTile(
-          leading: const Icon(Icons.badge_outlined),
-          title: const Text('Profili Düzenle'),
-          subtitle: Text(_bio.isEmpty ? 'Biyografi yok' : _bio,
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: _openEditProfileSheet,
-        ),
-        ListTile(
-          leading: const Icon(Icons.location_on_outlined),
-          title: const Text('Adres / Mahalle'),
-          subtitle: Text(
-            _neighborhood +
-                (_addressVerified ? '  • Doğrulandı' : '  • Doğrulanmadı'),
-            style: TextStyle(
-              color: _addressVerified
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline,
-            ),
+    return RefreshIndicator(
+      onRefresh: _loadProfile,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          if (_loading) const LinearProgressIndicator(),
+          // Üst Profil Kartı
+          _ProfileHeader(
+            name: _name,
+            neighborhood: _neighborhood,
+            bio: _bio,
+            addressVerified: _addressVerified,
+            onEditAvatar: _onEditAvatar,
+            onEditProfile: _openEditProfileSheet,
+            onVerifyAddress: _openAddressSheet,
           ),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: _openAddressSheet,
-        ),
 
-        const SizedBox(height: 8),
-        _SectionHeader(title: 'Bildirimler'),
+          const SizedBox(height: 16),
 
-        SwitchListTile(
-          secondary: const Icon(Icons.notifications_active_outlined),
-          title: const Text('Push bildirimleri'),
-          value: _pushNotif,
-          onChanged: (v) => setState(() => _pushNotif = v),
-        ),
-        SwitchListTile(
-          secondary: const Icon(Icons.mail_outline_rounded),
-          title: const Text('E-posta bildirimleri'),
-          value: _emailNotif,
-          onChanged: (v) => setState(() => _emailNotif = v),
-        ),
+          // Sayaçlar
+          _StatsRow(
+            posts: _posts,
+            followers: _followers,
+            following: _following,
+          ),
 
-        const SizedBox(height: 8),
-        _SectionHeader(title: 'Gizlilik & Güvenlik'),
+          const SizedBox(height: 16),
 
-        SwitchListTile(
-          secondary: const Icon(Icons.lock_outline_rounded),
-          title: const Text('Hesabı gizli yap'),
-          value: _isPrivate,
-          onChanged: (v) => setState(() => _isPrivate = v),
-        ),
-        ListTile(
-          leading: const Icon(Icons.block_outlined),
-          title: const Text('Engellenen kullanıcılar'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _snack('Engellenen kullanıcılar sayfası yakında.'),
-        ),
-        ListTile(
-          leading: const Icon(Icons.privacy_tip_outlined),
-          title: const Text('Gizlilik politikası'),
-          trailing: const Icon(Icons.open_in_new_rounded),
-          onTap: () => _snack('Gizlilik politikası bağlantısı yok.'),
-        ),
+          // Hesap bölüm başlığı
+          _SectionHeader(title: 'Hesap'),
 
-        const SizedBox(height: 8),
-        _SectionHeader(title: 'Yardım'),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('Profili Düzenle'),
+            subtitle: Text(_bio.isEmpty ? 'Biyografi yok' : _bio,
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _openEditProfileSheet,
+          ),
+          ListTile(
+            leading: const Icon(Icons.location_on_outlined),
+            title: const Text('Adres / Mahalle'),
+            subtitle: Text(
+              _neighborhood +
+                  (_addressVerified ? '  • Doğrulandı' : '  • Doğrulanmadı'),
+              style: TextStyle(
+                color: _addressVerified
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _openAddressSheet,
+          ),
 
-        ListTile(
-          leading: const Icon(Icons.help_outline_rounded),
-          title: const Text('Yardım & Geri Bildirim'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _snack('Geri bildirim ekranı yakında.'),
-        ),
-        ListTile(
-          leading: const Icon(Icons.info_outline_rounded),
-          title: const Text('Hakkında'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _snack('Uygulama hakkında ekranı yakında.'),
-        ),
+          const SizedBox(height: 8),
+          _SectionHeader(title: 'Bildirimler'),
 
-        const SizedBox(height: 16),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Push bildirimleri'),
+            value: _pushNotif,
+            onChanged: (v) async {
+              setState(() => _pushNotif = v);
+              try {
+                final uid = Supabase.instance.client.auth.currentUser!.id;
+                await Supabase.instance.client
+                    .from('profiles')
+                    .update({'notif_push': v}).eq('id', uid);
+              } catch (_) {}
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.mail_outline_rounded),
+            title: const Text('E-posta bildirimleri'),
+            value: _emailNotif,
+            onChanged: (v) async {
+              setState(() => _emailNotif = v);
+              try {
+                final uid = Supabase.instance.client.auth.currentUser!.id;
+                await Supabase.instance.client
+                    .from('profiles')
+                    .update({'notif_email': v}).eq('id', uid);
+              } catch (_) {}
+            },
+          ),
 
-        // Çıkış yap
-        ListTile(
-          leading: Icon(Icons.logout_rounded, color: theme.colorScheme.error),
-          title: Text('Çıkış yap',
-              style: TextStyle(color: theme.colorScheme.error)),
-          onTap: _confirmLogout,
-        ),
-      ],
+          const SizedBox(height: 8),
+          _SectionHeader(title: 'Gizlilik & Güvenlik'),
+
+          SwitchListTile(
+            secondary: const Icon(Icons.lock_outline_rounded),
+            title: const Text('Hesabı gizli yap'),
+            value: _isPrivate,
+            onChanged: (v) async {
+              setState(() => _isPrivate = v);
+              try {
+                final uid = Supabase.instance.client.auth.currentUser!.id;
+                await Supabase.instance.client
+                    .from('profiles')
+                    .update({'is_private': v}).eq('id', uid);
+              } catch (_) {}
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.block_outlined),
+            title: const Text('Engellenen kullanıcılar'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _snack('Engellenen kullanıcılar sayfası yakında.'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Gizlilik politikası'),
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: () => _snack('Gizlilik politikası bağlantısı yok.'),
+          ),
+
+          const SizedBox(height: 8),
+          _SectionHeader(title: 'Yardım'),
+
+          ListTile(
+            leading: const Icon(Icons.help_outline_rounded),
+            title: const Text('Yardım & Geri Bildirim'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _snack('Geri bildirim ekranı yakında.'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: const Text('Hakkında'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _snack('Uygulama hakkında ekranı yakında.'),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Çıkış yap
+          ListTile(
+            leading: Icon(Icons.logout_rounded, color: theme.colorScheme.error),
+            title: Text('Çıkış yap',
+                style: TextStyle(color: theme.colorScheme.error)),
+            onTap: _confirmLogout,
+          ),
+        ],
+      ),
     );
   }
 
@@ -236,14 +302,30 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: FilledButton.icon(
                     icon: const Icon(Icons.check_rounded),
                     label: const Text('Kaydet'),
-                    onPressed: () {
+                    onPressed: () async {
+                      final newName = nameCtrl.text.trim();
+                      final newBio = bioCtrl.text.trim();
+
+                      try {
+                        final uid =
+                            Supabase.instance.client.auth.currentUser!.id;
+                        final update = <String, dynamic>{};
+                        if (newName.isNotEmpty)
+                          update['display_name'] = newName;
+                        update['bio'] = newBio; // boşsa '' yazılır, sorun değil
+                        if (update.isNotEmpty) {
+                          await Supabase.instance.client
+                              .from('profiles')
+                              .update(update)
+                              .eq('id', uid);
+                        }
+                      } catch (_) {}
+
                       setState(() {
-                        _name = nameCtrl.text.trim().isEmpty
-                            ? _name
-                            : nameCtrl.text.trim();
-                        _bio = bioCtrl.text.trim();
+                        if (newName.isNotEmpty) _name = newName;
+                        _bio = newBio;
                       });
-                      Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                       _snack('Profil güncellendi');
                     },
                   ),
@@ -305,14 +387,25 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: FilledButton.icon(
                       icon: const Icon(Icons.save_rounded),
                       label: const Text('Kaydet'),
-                      onPressed: () {
+                      onPressed: () async {
+                        final newPlace = placeCtrl.text.trim();
+
+                        try {
+                          final uid =
+                              Supabase.instance.client.auth.currentUser!.id;
+                          await Supabase.instance.client
+                              .from('profiles')
+                              .update({
+                            if (newPlace.isNotEmpty) 'district': newPlace,
+                            'address_verified': verified,
+                          }).eq('id', uid);
+                        } catch (_) {}
+
                         setState(() {
-                          _neighborhood = placeCtrl.text.trim().isEmpty
-                              ? _neighborhood
-                              : placeCtrl.text.trim();
+                          if (newPlace.isNotEmpty) _neighborhood = newPlace;
                           _addressVerified = verified;
                         });
-                        Navigator.pop(context);
+                        if (context.mounted) Navigator.pop(context);
                         _snack('Adres güncellendi');
                       },
                     ),
