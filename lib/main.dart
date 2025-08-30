@@ -12,6 +12,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/supabase_keys.dart';
 import 'features/auth/login_page.dart';
 import 'features/auth/auth_notifier.dart';
+import 'package:mahalle_app/features/auth/register_page.dart';
+import 'package:mahalle_app/features/auth/profile_setup_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,14 +37,19 @@ final _router = GoRouter(
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final loggedIn = session != null;
-    final goingToLogin = state.matchedLocation == '/login';
-    if (!loggedIn && !goingToLogin) return '/login';
-    if (loggedIn && goingToLogin) return '/';
+
+    final loc = state.matchedLocation;
+    final goingToLoginOrRegister = (loc == '/login' || loc == '/register');
+
+    if (!loggedIn && !goingToLoginOrRegister) return '/login';
+    if (loggedIn && goingToLoginOrRegister) return '/';
     return null;
   },
   routes: [
     GoRoute(path: '/', builder: (_, __) => const RootScaffold()),
     GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
+    GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
+    GoRoute(path: '/setup', builder: (_, __) => const ProfileSetupPage()),
     GoRoute(path: '/new', builder: (_, __) => const NewPostPage()),
     GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
   ],
@@ -90,6 +97,35 @@ class _RootScaffoldState extends State<RootScaffold> {
     if (barIndex == 2) return -1; // Yeni Post
     if (barIndex == 3) return 2; // Market
     return 3; // 4 => Profile
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _guardProfileCompleteness();
+  }
+
+  Future<void> _guardProfileCompleteness() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return; // login değilse dokunma
+
+    final uid = session.user.id;
+    final res = await Supabase.instance.client
+        .from('profiles')
+        .select('display_name, district')
+        .eq('id', uid)
+        .maybeSingle();
+
+    final complete = (res != null) &&
+        (res['display_name'] != null &&
+            (res['display_name'] as String).trim().isNotEmpty) &&
+        (res['district'] != null &&
+            (res['district'] as String).trim().isNotEmpty);
+
+    if (!mounted) return;
+    if (!complete) {
+      context.go('/setup');
+    }
   }
 
   @override

@@ -13,7 +13,6 @@ class _LoginPageState extends State<LoginPage> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   bool _loading = false;
-  bool _createMode = false;
 
   @override
   void dispose() {
@@ -26,20 +25,33 @@ class _LoginPageState extends State<LoginPage> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      if (_createMode) {
-        await authRepo.signUpWithEmail(_email.text.trim(), _pass.text);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Doğrulama e-postası gönderildi.')),
-          );
-        }
+      await authRepo.signInWithEmail(_email.text.trim(), _pass.text);
+
+      // Profil tamam mı? (display_name ve district bak)
+      final uid = Supabase.instance.client.auth.currentUser!.id;
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .select('display_name, district')
+          .eq('id', uid)
+          .maybeSingle();
+
+      final complete = (res != null) &&
+          (res['display_name'] != null &&
+              (res['display_name'] as String).trim().isNotEmpty) &&
+          (res['district'] != null &&
+              (res['district'] as String).trim().isNotEmpty);
+
+      if (!mounted) return;
+      if (complete) {
+        context.go('/');
       } else {
-        await authRepo.signInWithEmail(_email.text.trim(), _pass.text);
-        if (mounted) context.go('/');
+        context.go('/setup');
       }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -82,19 +94,13 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _loading ? null : _submit,
-                      child: Text(_createMode ? 'Kayıt ol' : 'Giriş yap'),
+                      child: Text('Giriş yap'),
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () {
-                            setState(() => _createMode = !_createMode);
-                          },
-                    child: Text(_createMode
-                        ? 'Hesabın var mı? Giriş yap'
-                        : 'Hesabın yok mu? Kayıt ol'),
+                    onPressed: _loading ? null : () => context.go('/register'),
+                    child: const Text('Hesabın yok mu? Kayıt ol'),
                   ),
                 ],
               ),
