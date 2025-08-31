@@ -1,53 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:mahalle_app/features/notifications/notifications_page.dart';
 import 'package:mahalle_app/features/messages/messages_page.dart';
+import 'package:mahalle_app/features/home/widgets/supabase_feed.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final demoPosts = [
-      Post(
-        author: 'Ayşe K.',
-        handle: '@osmanaga',
-        timeAgo: '5 dk',
-        text:
-            'Bu akşam 20:00’de apartman toplantısı var. Asansör bakımı ve bahçe düzeni konuşulacak. Katılım önemli 🌿',
-        imageUrl:
-            'https://images.unsplash.com/photo-1523419409543-3011117bd9a5?w=1200',
-        likes: 18,
-        comments: 4,
-        shares: 1,
-        typeLabel: 'Duyuru',
-      ),
-      Post(
-        author: 'Mert T.',
-        handle: '@kedisever',
-        timeAgo: '1 sa',
-        text:
-            'Kayıp kedi görüldü mü? Turuncu beyaz tekir, boynunda mavi tasma var. Gören olursa DM atabilir mi? 🙏',
-        imageUrl:
-            'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200',
-        likes: 42,
-        comments: 12,
-        shares: 6,
-        typeLabel: 'Kayıp Eşya',
-      ),
-      Post(
-        author: 'Elif B.',
-        handle: '@ikinciEl',
-        timeAgo: 'Dün',
-        text:
-            'İyi durumda çalışma masası satılık. Kadıköy içi elden teslim. Detaylar için mesaj atabilirsiniz.',
-        imageUrl: null,
-        likes: 7,
-        comments: 3,
-        shares: 0,
-        typeLabel: 'Pazar',
-      ),
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Mahalle"),
@@ -74,12 +34,7 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-        itemCount: demoPosts.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => PostCard(post: demoPosts[i]),
-      ),
+      body: const SupabaseFeed(),
     );
   }
 }

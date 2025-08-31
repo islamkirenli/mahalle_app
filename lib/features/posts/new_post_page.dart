@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NewPostPage extends StatefulWidget {
   const NewPostPage({super.key});
@@ -7,6 +10,7 @@ class NewPostPage extends StatefulWidget {
 }
 
 enum _PostType { duyuru, etkinlik, ilan, yardim, pazarIlani, diger }
+
 enum _ItemCondition { newItem, usedItem }
 
 class _NewPostPageState extends State<NewPostPage> {
@@ -40,11 +44,9 @@ class _NewPostPageState extends State<NewPostPage> {
   bool _allowComments = true;
   bool _urgent = false;
 
-  // Etkinlik için
   DateTime? _eventDateTime;
 
-  // Görsel ekleme (placeholder)
-  final List<_Attachment> _attachments = [];
+  final List<File> _attachments = [];
 
   @override
   void dispose() {
@@ -58,8 +60,7 @@ class _NewPostPageState extends State<NewPostPage> {
     final textOk =
         _ctrl.text.trim().isNotEmpty && _ctrl.text.trim().length <= _maxChars;
 
-    final etkinlikOk =
-        _type != _PostType.etkinlik || _eventDateTime != null;
+    final etkinlikOk = _type != _PostType.etkinlik || _eventDateTime != null;
 
     final pazarOk = _type != _PostType.pazarIlani
         ? true
@@ -102,67 +103,130 @@ class _NewPostPageState extends State<NewPostPage> {
     });
   }
 
-  void _addImage() {
+  Future<void> _addImage() async {
+    final picker = ImagePicker();
+    final pics = await picker.pickMultiImage(imageQuality: 85); // çoklu seçim
+    if (pics.isEmpty) return;
     setState(() {
-      _attachments.add(_Attachment(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        colorSeed: Colors.primaries[_attachments.length % Colors.primaries.length],
-      ));
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Görsel ekleme placeholder eklendi (gerçek picker TODO).'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _removeImage(String id) {
-    setState(() {
-      _attachments.removeWhere((e) => e.id == id);
+      _attachments.addAll(pics.map((x) => File(x.path)));
     });
   }
 
-  void _submit() {
+  void _removeImage(int index) {
+    setState(() {
+      if (index >= 0 && index < _attachments.length) {
+        _attachments.removeAt(index);
+      }
+    });
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_type == _PostType.etkinlik && _eventDateTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Etkinlik tarihi seçiniz.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+            content: Text('Etkinlik tarihi seçiniz.'),
+            behavior: SnackBarBehavior.floating),
       );
       return;
     }
-
     if (_type == _PostType.pazarIlani) {
       if (_marketCategory == null || _parsePrice(_priceCtrl.text) <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Pazar ilanı için kategori ve geçerli fiyat giriniz.'),
-            behavior: SnackBarBehavior.floating,
-          ),
+              content:
+                  Text('Pazar ilanı için kategori ve geçerli fiyat giriniz.'),
+              behavior: SnackBarBehavior.floating),
         );
         return;
       }
     }
 
-    // TODO: Supabase’e post et:
-    // - type: _type
-    // - text: _ctrl.text
-    // - attachments: _attachments
-    // - etkinlik: _eventDateTime
-    // - pazar ilani: category, price, condition, negotiable
-    // - location: _shareLocation ? _locCtrl.text : null
-    // - allowComments, urgent
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Gönderin paylaşıldı (demoda).'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    final client = Supabase.instance.client;
+
+    try {
+      // 1) Görselleri Storage'a yükle
+      final List<String> urls = [];
+      for (final f in _attachments) {
+        final uid = client.auth.currentUser!.id;
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${f.path.split('/').last}';
+        final storagePath = '$uid/$fileName';
+
+        await client.storage.from('post-images').upload(storagePath, f);
+        final url =
+            client.storage.from('post-images').getPublicUrl(storagePath);
+        urls.add(url);
+      }
+
+      // 2) Kullanıcının mahallesini çek
+      final uid = client.auth.currentUser!.id;
+      final prof = await client
+          .from('profiles')
+          .select('district, display_name')
+          .eq('id', uid)
+          .maybeSingle();
+
+      final user = client.auth.currentUser!;
+      final displayName = (prof?['display_name'] as String?)?.trim();
+      final authorName = (displayName?.isNotEmpty == true)
+          ? displayName!
+          : (user.email ?? 'Komşu');
+
+      // 3) Alanları map'e çevirip insert et
+      String typeStr(_PostType t) => switch (t) {
+            _PostType.duyuru => 'duyuru',
+            _PostType.etkinlik => 'etkinlik',
+            _PostType.ilan => 'ilan',
+            _PostType.yardim => 'yardim',
+            _PostType.pazarIlani => 'pazarIlani',
+            _PostType.diger => 'diger',
+          };
+
+      final payload = <String, dynamic>{
+        'author_id': uid,
+        'author_name': authorName,
+        'text': _ctrl.text.trim(),
+        'district': prof?['district'],
+        'type': typeStr(_type),
+        'allow_comments': _allowComments,
+        'urgent': _urgent,
+        'location_desc': _shareLocation ? _locCtrl.text.trim() : null,
+        'attachments': urls.isEmpty ? null : urls, // jsonb array
+        // Etkinlik alanı
+        'event_at': _type == _PostType.etkinlik
+            ? _eventDateTime?.toUtc().toIso8601String()
+            : null,
+        // Pazar ilanı alanları
+        'market_category':
+            _type == _PostType.pazarIlani ? _marketCategory : null,
+        'price_cents': _type == _PostType.pazarIlani
+            ? _parsePrice(_priceCtrl.text) * 100
+            : null,
+        'item_condition': _type == _PostType.pazarIlani
+            ? (_condition == _ItemCondition.newItem ? 'new' : 'used')
+            : null,
+        'negotiable': _type == _PostType.pazarIlani ? _negotiable : null,
+      };
+
+      await client.from('posts').insert(payload);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Gönderin paylaşıldı.'),
+            behavior: SnackBarBehavior.floating),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Gönderilemedi: $e'),
+            behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   @override
@@ -246,8 +310,7 @@ class _NewPostPageState extends State<NewPostPage> {
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
                 onChanged: (v) => setState(() => _marketCategory = v),
-                validator: (v) =>
-                    v == null ? 'Kategori seçiniz' : null,
+                validator: (v) => v == null ? 'Kategori seçiniz' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -258,8 +321,9 @@ class _NewPostPageState extends State<NewPostPage> {
                   hintText: 'Örn. 1500',
                   prefixIcon: Icon(Icons.payments_outlined),
                 ),
-                validator: (v) =>
-                    _parsePrice(v ?? '') > 0 ? null : 'Geçerli bir fiyat giriniz',
+                validator: (v) => _parsePrice(v ?? '') > 0
+                    ? null
+                    : 'Geçerli bir fiyat giriniz',
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -421,12 +485,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _Attachment {
-  final String id;
-  final Color colorSeed;
-  _Attachment({required this.id, required this.colorSeed});
-}
-
 class _AttachmentRow extends StatelessWidget {
   const _AttachmentRow({
     required this.attachments,
@@ -434,19 +492,21 @@ class _AttachmentRow extends StatelessWidget {
     required this.onRemove,
   });
 
-  final List<_Attachment> attachments;
+  final List<File> attachments;
   final VoidCallback onAdd;
-  final void Function(String id) onRemove;
+  final void Function(int index) onRemove;
 
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[
       _AddTile(onAdd: onAdd),
-      ...attachments.map((a) => _ImageTile(
-            id: a.id,
-            colorSeed: a.colorSeed,
-            onRemove: onRemove,
-          )),
+      ...List.generate(
+          attachments.length,
+          (i) => _ImageTile(
+                index: i,
+                file: attachments[i],
+                onRemove: onRemove,
+              )),
     ];
 
     return SizedBox(
@@ -492,36 +552,26 @@ class _AddTile extends StatelessWidget {
 
 class _ImageTile extends StatelessWidget {
   const _ImageTile({
-    required this.id,
-    required this.colorSeed,
+    required this.index,
+    required this.file,
     required this.onRemove,
   });
 
-  final String id;
-  final Color colorSeed;
-  final void Function(String id) onRemove;
+  final int index;
+  final File file;
+  final void Function(int index) onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Stack(
       children: [
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [
-                colorSeed.withOpacity(0.35),
-                theme.colorScheme.primaryContainer.withOpacity(0.45),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.image_rounded, size: 36, color: Colors.white70),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            file,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
           ),
         ),
         Positioned(
@@ -532,7 +582,7 @@ class _ImageTile extends StatelessWidget {
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () => onRemove(id),
+              onTap: () => onRemove(index),
               child: const Padding(
                 padding: EdgeInsets.all(4),
                 child: Icon(Icons.close_rounded, size: 16, color: Colors.white),

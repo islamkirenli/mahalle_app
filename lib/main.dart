@@ -6,7 +6,7 @@ import 'package:mahalle_app/features/events/events_page.dart';
 import 'package:mahalle_app/features/market/marketplace_page.dart';
 import 'core/theme.dart';
 import 'features/home/home_page.dart';
-import 'features/post/new_post_page.dart';
+import 'features/posts/new_post_page.dart';
 import 'features/profile/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/supabase_keys.dart';
