@@ -49,6 +49,9 @@ class _FeedPostCard extends StatefulWidget {
 class _FeedPostCardState extends State<_FeedPostCard> {
   bool _liked = false;
   int _likes = 0;
+  String? _postId;
+  int _comments = 0;
+  int _shares = 0;
   late final PageController _pc;
   int _page = 0;
 
@@ -56,6 +59,18 @@ class _FeedPostCardState extends State<_FeedPostCard> {
   void initState() {
     super.initState();
     _pc = PageController();
+
+    final p = widget.post;
+    _postId = p['id'] as String?;
+    _likes = (p['likes_count'] as int?) ?? 0;
+    _comments = (p['comments_count'] as int?) ?? 0;
+    _shares = (p['shares_count'] as int?) ?? 0;
+
+    if (_postId != null) {
+      postRepo.isLikedByMe(_postId!).then((v) {
+        if (mounted) setState(() => _liked = v);
+      });
+    }
   }
 
   @override
@@ -300,20 +315,57 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                   children: [
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() {
-                        _liked = !_liked;
-                        _likes += _liked ? 1 : -1;
-                      }),
+                      onPressed: _postId == null
+                          ? null
+                          : () async {
+                              final prev = _liked;
+                              setState(() {
+                                _liked = !prev;
+                                _likes += _liked ? 1 : -1;
+                              });
+                              try {
+                                if (_liked) {
+                                  await postRepo.like(_postId!);
+                                } else {
+                                  await postRepo.unlike(_postId!);
+                                }
+                              } catch (e) {
+                                if (!mounted) return;
+                                setState(() {
+                                  _liked = prev;
+                                  _likes += _liked ? 1 : -1;
+                                });
+                                debugPrint('like error: $e');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Beğeni işlemi başarısız.')),
+                                );
+                              }
+                            },
                       icon: Icon(
                         _liked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
                         color: _liked ? primary : null,
                       ),
                     ),
-                    Text(_fmt(_likes),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: _liked ? primary : null,
-                          fontWeight: _liked ? FontWeight.w600 : null,
-                        )),
+                    InkWell(
+                      onTap: (_likes > 0) ? _showLikersSheet : null,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
+                        child: Text(
+                          _fmt(_likes),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: _liked ? primary : null,
+                            fontWeight: _liked ? FontWeight.w600 : null,
+                            decoration:
+                                (_likes > 0) ? TextDecoration.underline : null,
+                            decorationStyle: TextDecorationStyle.dotted,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 16),
@@ -321,14 +373,19 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                   children: [
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Yorumlar yakında')),
-                        );
-                      },
+                      onPressed: (_postId == null) ? null : _showCommentsSheet,
                       icon: const Icon(Icons.mode_comment_outlined),
                     ),
-                    Text('0', style: theme.textTheme.labelLarge),
+                    InkWell(
+                      onTap: (_postId == null) ? null : _showCommentsSheet,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
+                        child: Text(_fmt(_comments),
+                            style: theme.textTheme.labelLarge),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 16),
@@ -336,10 +393,28 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                   children: [
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: () {},
+                      onPressed: _postId == null
+                          ? null
+                          : () async {
+                              try {
+                                await postRepo.share(_postId!);
+                                if (!mounted) return;
+                                setState(() => _shares += 1); // optimistic
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Paylaşıldı.')),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                debugPrint('share error: $e');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Paylaşım başarısız.')),
+                                );
+                              }
+                            },
                       icon: const Icon(Icons.share_outlined),
                     ),
-                    Text('0', style: theme.textTheme.labelLarge),
+                    Text(_fmt(_shares), style: theme.textTheme.labelLarge),
                   ],
                 ),
                 const Spacer(),
@@ -371,5 +446,216 @@ class _FeedPostCardState extends State<_FeedPostCard> {
     if (diff.inHours < 24) return '${diff.inHours} sa';
     if (diff.inDays < 7) return '${diff.inDays} gün';
     return DateFormat('dd.MM.yyyy').format(dt);
+  }
+
+  Future<void> _showLikersSheet() async {
+    final postId = (widget.post['id'] as String?);
+    if (postId == null || _likes <= 0) return;
+
+    final theme = Theme.of(context);
+    final likers = await postRepo.likers(postId);
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5, // ← yarım ekran
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          snap: true,
+          snapSizes: const [0.5, 0.95],
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Beğenenler',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController, // ← sheet’in scroll’u
+                      itemCount: likers.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: theme.colorScheme.outlineVariant.withOpacity(.4),
+                      ),
+                      itemBuilder: (_, i) {
+                        final m = likers[i];
+                        final name = (m['display_name'] as String?)?.trim();
+                        final title =
+                            (name != null && name.isNotEmpty) ? name : 'Komşu';
+                        final avatar = (m['avatar_url'] as String?) ?? '';
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage:
+                                avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                            child: avatar.isEmpty
+                                ? Text(title.characters.first)
+                                : null,
+                          ),
+                          title: Text(title),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showCommentsSheet() async {
+    final postId = _postId;
+    if (postId == null) return;
+
+    final theme = Theme.of(context);
+    final inputCtrl = TextEditingController();
+
+    // İlk liste
+    List<Map<String, dynamic>> items = await postRepo.comments(postId);
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5, // yarım ekran
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          snap: true,
+          snapSizes: const [0.5, 0.95],
+          builder: (ctx, scrollCtrl) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+              ),
+              child: Column(
+                children: [
+                  Text('Yorumlar',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollCtrl,
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: theme.colorScheme.outlineVariant.withOpacity(.4),
+                      ),
+                      itemBuilder: (_, i) {
+                        final m = items[i];
+                        final name =
+                            ((m['display_name'] as String?) ?? 'Komşu').trim();
+                        final avatar = (m['avatar_url'] as String?) ?? '';
+                        final text = (m['text'] as String?) ?? '';
+                        final createdAt = DateTime.tryParse(
+                              m['created_at'] as String? ?? '',
+                            ) ??
+                            DateTime.now();
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage:
+                                avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                            child: avatar.isEmpty
+                                ? Text(name.characters.first)
+                                : null,
+                          ),
+                          title: Text(name,
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(text),
+                              const SizedBox(height: 4),
+                              Text(
+                                _relative(createdAt),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: inputCtrl,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            hintText: 'Yorum yaz…',
+                            prefixIcon: Icon(Icons.mode_comment_outlined),
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () async {
+                          final txt = inputCtrl.text.trim();
+                          if (txt.isEmpty) return;
+                          try {
+                            await postRepo.addComment(postId, txt);
+                            inputCtrl.clear();
+                            // Listeyi yenile
+                            items = await postRepo.comments(postId);
+                            if (!mounted) return;
+                            setState(() => _comments += 1); // optimistic sayaç
+                            (ctx as Element).markNeedsBuild(); // sheet'i yenile
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Yorum eklenemedi.')),
+                            );
+                          }
+                        },
+                        child: const Icon(Icons.send_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
