@@ -151,6 +151,20 @@ class PostRepo {
         }
     ];
   }
+
+  Future<List<Map<String, dynamic>>> fetchFeedPage({
+    required int page,
+    int limit = 10,
+  }) async {
+    final from = page * limit;
+    final to = from + limit - 1;
+    final rows = await _sb
+        .from('posts')
+        .select('*')
+        .order('created_at', ascending: false)
+        .range(from, to);
+    return (rows as List).cast<Map<String, dynamic>>();
+  }
 }
 
 final postRepo = PostRepo();

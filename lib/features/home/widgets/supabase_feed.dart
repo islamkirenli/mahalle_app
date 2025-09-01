@@ -1,39 +1,256 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../posts/post_repo.dart';
+import 'package:shimmer/shimmer.dart';
 
-class SupabaseFeed extends StatelessWidget {
+class SupabaseFeed extends StatefulWidget {
   const SupabaseFeed({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: postRepo.feedStream(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        final items = snap.data ?? const [];
-        if (items.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text('Henüz gönderi yok. İlk paylaşımı sen yap!'),
-            ),
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, i) => _FeedPostCard(post: items[i]),
+  State<SupabaseFeed> createState() => _SupabaseFeedState();
+}
+
+class _SupabaseFeedState extends State<SupabaseFeed> {
+  final _scrollCtrl = ScrollController();
+  final _items = <Map<String, dynamic>>[];
+
+  bool _loadingInitial = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 0;
+  static const _pageSize = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFirst();
+    _scrollCtrl.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFirst() async {
+    setState(() {
+      _loadingInitial = true;
+      _page = 0;
+      _hasMore = true;
+      _items.clear();
+    });
+    try {
+      final rows = await postRepo.fetchFeedPage(page: 0, limit: _pageSize);
+      setState(() {
+        _items.addAll(rows);
+        _loadingInitial = false;
+        _hasMore = rows.length == _pageSize;
+        _page = 1;
+      });
+    } catch (e) {
+      setState(() => _loadingInitial = false);
+      debugPrint('feed loadFirst error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Akış yüklenemedi.')),
         );
-      },
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final rows = await postRepo.fetchFeedPage(page: _page, limit: _pageSize);
+      setState(() {
+        _items.addAll(rows);
+        _hasMore = rows.length == _pageSize;
+        _page += 1;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      setState(() => _loadingMore = false);
+      debugPrint('feed loadMore error: $e');
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients || _loadingMore || !_hasMore) return;
+    final pos = _scrollCtrl.position;
+    if (pos.pixels >= pos.maxScrollExtent - 600) {
+      _loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loadingInitial) {
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, __) => const _PostSkeleton(),
+      );
+    }
+
+    if (_items.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Henüz gönderi yok. İlk paylaşımı sen yap!'),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadFirst,
+      child: ListView.separated(
+        controller: _scrollCtrl,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+        itemCount: _items.length + 1, // +1: alt yükleniyor/sonek
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, i) {
+          if (i < _items.length) {
+            return _FeedPostCard(post: _items[i]);
+          }
+          // footer
+          if (_loadingMore) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+          if (!_hasMore) {
+            return const SizedBox.shrink();
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+}
+
+class _PostSkeleton extends StatelessWidget {
+  const _PostSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Shimmer.fromColors(
+      baseColor: theme.colorScheme.surfaceVariant.withOpacity(.5),
+      highlightColor: theme.colorScheme.surfaceVariant.withOpacity(.2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(.6),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // header row
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                          )),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                            width: 80,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(5),
+                            )),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    )),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // text lines
+            Container(
+                height: 10,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                )),
+            const SizedBox(height: 8),
+            Container(
+                width: 180,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                )),
+            const SizedBox(height: 12),
+            // image skeleton
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // action bar
+            Row(
+              children: List.generate(
+                  3,
+                  (i) => Padding(
+                        padding: EdgeInsets.only(right: i == 2 ? 0 : 16),
+                        child: Row(children: [
+                          Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              )),
+                          const SizedBox(width: 6),
+                          Container(
+                              width: 24,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(5),
+                              )),
+                        ]),
+                      )),
+            )
+          ],
+        ),
+      ),
     );
   }
 }
