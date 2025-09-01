@@ -14,6 +14,7 @@ import 'features/auth/login_page.dart';
 import 'features/auth/auth_notifier.dart';
 import 'package:mahalle_app/features/auth/register_page.dart';
 import 'package:mahalle_app/features/auth/profile_setup_page.dart';
+import 'package:mahalle_app/features/posts/post_detail_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,12 @@ final _router = GoRouter(
     GoRoute(path: '/setup', builder: (_, __) => const ProfileSetupPage()),
     GoRoute(path: '/new', builder: (_, __) => const NewPostPage()),
     GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+    GoRoute(
+      path: '/post/:id',
+      builder: (_, state) => PostDetailPage(
+        postId: state.pathParameters['id']!,
+      ),
+    ),
   ],
 );
 

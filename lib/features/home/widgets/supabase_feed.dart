@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../posts/post_repo.dart';
 import 'package:shimmer/shimmer.dart';
@@ -338,123 +339,106 @@ class _FeedPostCardState extends State<_FeedPostCard> {
       elevation: 0.5,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // HEADER
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: primary.withOpacity(.12),
-                  child: Text(author.characters.isEmpty
-                      ? '?'
-                      : author.characters.first),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              author,
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          if (handle.isNotEmpty)
-                            Text(
-                              handle,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: theme.hintColor),
-                            ),
-                          if (timeAgo.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '• $timeAgo',
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: theme.hintColor),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      if (typeLabel != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: primary.withOpacity(.08),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: theme.textTheme.labelSmall
-                                ?.copyWith(color: primary),
-                          ),
-                        ),
-                    ],
+      child: InkWell(
+        onTap: () {
+          final id = (_postId ?? widget.post['id']) as String?;
+          if (id != null) {
+            context.push('/post/$id');
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: primary.withOpacity(.12),
+                    child: Text(author.characters.isEmpty
+                        ? '?'
+                        : author.characters.first),
                   ),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.more_horiz),
-                  onPressed: () {},
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // METİN
-            if (text.isNotEmpty) Text(text, style: theme.textTheme.bodyLarge),
-
-            // GÖRSELLER (çoklu destek)
-            if (images.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Tek görsel: direkt göster
-                      if (images.length == 1)
-                        Image.network(
-                          images.first,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (c, w, p) {
-                            if (p == null) return w;
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(12),
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                author,
+                                style: theme.textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            );
-                          },
-                          errorBuilder: (_, __, ___) => const Center(
-                              child:
-                                  Icon(Icons.broken_image_outlined, size: 40)),
+                            ),
+                            const SizedBox(width: 6),
+                            if (handle.isNotEmpty)
+                              Text(
+                                handle,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.hintColor),
+                              ),
+                            if (timeAgo.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '• $timeAgo',
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.hintColor),
+                              ),
+                            ],
+                          ],
                         ),
+                        const SizedBox(height: 2),
+                        if (typeLabel != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: primary.withOpacity(.08),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: theme.textTheme.labelSmall
+                                  ?.copyWith(color: primary),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.more_horiz),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
 
-                      // Çoklu görsel: PageView
-                      if (images.length > 1)
-                        PageView.builder(
-                          controller: _pc,
-                          onPageChanged: (i) => setState(() => _page = i),
-                          itemCount: images.length,
-                          itemBuilder: (_, i) => Image.network(
-                            images[i],
+              const SizedBox(height: 10),
+
+              // METİN
+              if (text.isNotEmpty) Text(text, style: theme.textTheme.bodyLarge),
+
+              // GÖRSELLER (çoklu destek)
+              if (images.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Tek görsel: direkt göster
+                        if (images.length == 1)
+                          Image.network(
+                            images.first,
                             fit: BoxFit.cover,
                             loadingBuilder: (c, w, p) {
                               if (p == null) return w;
@@ -467,183 +451,212 @@ class _FeedPostCardState extends State<_FeedPostCard> {
                               );
                             },
                             errorBuilder: (_, __, ___) => const Center(
-                              child:
-                                  Icon(Icons.broken_image_outlined, size: 40),
-                            ),
+                                child: Icon(Icons.broken_image_outlined,
+                                    size: 40)),
                           ),
-                        ),
 
-                      // Çoklu görseller için sayfa sayacı (sağ üst)
-                      if (images.length > 1)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black45,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${_page + 1}/${images.length}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700),
+                        // Çoklu görsel: PageView
+                        if (images.length > 1)
+                          PageView.builder(
+                            controller: _pc,
+                            onPageChanged: (i) => setState(() => _page = i),
+                            itemCount: images.length,
+                            itemBuilder: (_, i) => Image.network(
+                              images[i],
+                              fit: BoxFit.cover,
+                              loadingBuilder: (c, w, p) {
+                                if (p == null) return w;
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (_, __, ___) => const Center(
+                                child:
+                                    Icon(Icons.broken_image_outlined, size: 40),
+                              ),
                             ),
                           ),
-                        ),
 
-                      // Nokta göstergeleri (alt orta)
-                      if (images.length > 1)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 8,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(images.length, (i) {
-                              final active = i == _page;
-                              return Container(
-                                width: active ? 10 : 7,
-                                height: active ? 10 : 7,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 3),
-                                decoration: BoxDecoration(
-                                  color: active ? Colors.white : Colors.white70,
-                                  shape: BoxShape.circle,
-                                ),
-                              );
-                            }),
+                        // Çoklu görseller için sayfa sayacı (sağ üst)
+                        if (images.length > 1)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black45,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${_page + 1}/${images.length}',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ),
                           ),
-                        ),
-                    ],
+
+                        // Nokta göstergeleri (alt orta)
+                        if (images.length > 1)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(images.length, (i) {
+                                final active = i == _page;
+                                return Container(
+                                  width: active ? 10 : 7,
+                                  height: active ? 10 : 7,
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 3),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        active ? Colors.white : Colors.white70,
+                                    shape: BoxShape.circle,
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
 
-            const SizedBox(height: 6),
+              const SizedBox(height: 6),
 
-            // ACTION BAR (şimdilik local sayaç)
-            Row(
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: _postId == null
-                          ? null
-                          : () async {
-                              final prev = _liked;
-                              setState(() {
-                                _liked = !prev;
-                                _likes += _liked ? 1 : -1;
-                              });
-                              try {
-                                if (_liked) {
-                                  await postRepo.like(_postId!);
-                                } else {
-                                  await postRepo.unlike(_postId!);
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
+              // ACTION BAR (şimdilik local sayaç)
+              Row(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _postId == null
+                            ? null
+                            : () async {
+                                final prev = _liked;
                                 setState(() {
-                                  _liked = prev;
+                                  _liked = !prev;
                                   _likes += _liked ? 1 : -1;
                                 });
-                                debugPrint('like error: $e');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content:
-                                          Text('Beğeni işlemi başarısız.')),
-                                );
-                              }
-                            },
-                      icon: Icon(
-                        _liked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
-                        color: _liked ? primary : null,
+                                try {
+                                  if (_liked) {
+                                    await postRepo.like(_postId!);
+                                  } else {
+                                    await postRepo.unlike(_postId!);
+                                  }
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _liked = prev;
+                                    _likes += _liked ? 1 : -1;
+                                  });
+                                  debugPrint('like error: $e');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text('Beğeni işlemi başarısız.')),
+                                  );
+                                }
+                              },
+                        icon: Icon(
+                          _liked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
+                          color: _liked ? primary : null,
+                        ),
                       ),
-                    ),
-                    InkWell(
-                      onTap: (_likes > 0) ? _showLikersSheet : null,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 2),
-                        child: Text(
-                          _fmt(_likes),
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: _liked ? primary : null,
-                            fontWeight: _liked ? FontWeight.w600 : null,
-                            decoration:
-                                (_likes > 0) ? TextDecoration.underline : null,
-                            decorationStyle: TextDecorationStyle.dotted,
+                      InkWell(
+                        onTap: (_likes > 0) ? _showLikersSheet : null,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
+                          child: Text(
+                            _fmt(_likes),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: _liked ? primary : null,
+                              fontWeight: _liked ? FontWeight.w600 : null,
+                              decoration: (_likes > 0)
+                                  ? TextDecoration.underline
+                                  : null,
+                              decorationStyle: TextDecorationStyle.dotted,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                Row(
-                  children: [
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: (_postId == null) ? null : _showCommentsSheet,
-                      icon: const Icon(Icons.mode_comment_outlined),
-                    ),
-                    InkWell(
-                      onTap: (_postId == null) ? null : _showCommentsSheet,
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 2),
-                        child: Text(_fmt(_comments),
-                            style: theme.textTheme.labelLarge),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed:
+                            (_postId == null) ? null : _showCommentsSheet,
+                        icon: const Icon(Icons.mode_comment_outlined),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                Row(
-                  children: [
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      onPressed: _postId == null
-                          ? null
-                          : () async {
-                              try {
-                                await postRepo.share(_postId!);
-                                if (!mounted) return;
-                                setState(() => _shares += 1); // optimistic
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Paylaşıldı.')),
-                                );
-                              } catch (e) {
-                                if (!mounted) return;
-                                debugPrint('share error: $e');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Paylaşım başarısız.')),
-                                );
-                              }
-                            },
-                      icon: const Icon(Icons.share_outlined),
-                    ),
-                    Text(_fmt(_shares), style: theme.textTheme.labelLarge),
-                  ],
-                ),
-                const Spacer(),
-                Icon(Icons.visibility_outlined,
-                    size: 18, color: theme.hintColor),
-                const SizedBox(width: 4),
-                Text('Herkese Açık',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: theme.hintColor)),
-              ],
-            ),
-          ],
+                      InkWell(
+                        onTap: (_postId == null) ? null : _showCommentsSheet,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
+                          child: Text(_fmt(_comments),
+                              style: theme.textTheme.labelLarge),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _postId == null
+                            ? null
+                            : () async {
+                                try {
+                                  await postRepo.share(_postId!);
+                                  if (!mounted) return;
+                                  setState(() => _shares += 1); // optimistic
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Paylaşıldı.')),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  debugPrint('share error: $e');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Paylaşım başarısız.')),
+                                  );
+                                }
+                              },
+                        icon: const Icon(Icons.share_outlined),
+                      ),
+                      Text(_fmt(_shares), style: theme.textTheme.labelLarge),
+                    ],
+                  ),
+                  const Spacer(),
+                  Icon(Icons.visibility_outlined,
+                      size: 18, color: theme.hintColor),
+                  const SizedBox(width: 4),
+                  Text('Herkese Açık',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: theme.hintColor)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

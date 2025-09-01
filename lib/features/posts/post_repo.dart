@@ -165,6 +165,49 @@ class PostRepo {
         .range(from, to);
     return (rows as List).cast<Map<String, dynamic>>();
   }
+
+  Future<Map<String, dynamic>?> fetchPost(String id) async {
+    final rows = await _sb.from('posts').select('*').eq('id', id).maybeSingle();
+    if (rows == null) return null;
+    return (rows as Map).cast<String, dynamic>();
+  }
+
+  Future<List<Map<String, dynamic>>> commentsList(String postId) async {
+    final comments = await _sb
+        .from('post_comments')
+        .select('user_id, text, created_at')
+        .eq('post_id', postId)
+        .order('created_at', ascending: false);
+
+    if (comments.isEmpty) return [];
+
+    final ids =
+        (comments as List).map((e) => (e as Map)['user_id'] as String).toList();
+    final uniq = ids.toSet().toList();
+    if (uniq.isEmpty) return [];
+    final idsSql = '(${uniq.map((e) => '"$e"').join(',')})';
+
+    final profiles = await _sb
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .filter('id', 'in', idsSql);
+
+    final byId = {
+      for (final p in (profiles as List))
+        (p as Map)['id'] as String: p as Map<String, dynamic>
+    };
+
+    return [
+      for (final c in comments)
+        {
+          'user_id': (c as Map)['user_id'],
+          'text': c['text'],
+          'created_at': c['created_at'],
+          'display_name': byId[c['user_id']]?['display_name'] as String?,
+          'avatar_url': byId[c['user_id']]?['avatar_url'] as String?,
+        }
+    ];
+  }
 }
 
 final postRepo = PostRepo();
