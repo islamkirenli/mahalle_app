@@ -93,8 +93,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         .eq('conversation_id', widget.conversationId)
         .order('created_at', ascending: true)
         // <<< AKIŞI ÖNCE ChatMessage listesine map ediyoruz
-        .map((rows) =>
-            rows.map((e) => _fromMapSafe(e as Map<String, dynamic>)).toList())
+        .map((rows) => rows.map((e) => _fromMapSafe(e)).toList())
         .listen((list) {
           setState(() => _messages = list);
           _repo.markConversationRead(widget.conversationId);

@@ -134,9 +134,7 @@ class ChatRepo {
         .stream(primaryKey: ['id'])
         .eq('conversation_id', conversationId)
         .order('id', ascending: true)
-        .map((rows) => rows
-            .map((e) => ChatMessage.fromMap(e as Map<String, dynamic>))
-            .toList());
+        .map((rows) => rows.map((e) => ChatMessage.fromMap(e)).toList());
   }
 
   Future<void> sendMessage({

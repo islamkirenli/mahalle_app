@@ -11,31 +11,9 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
-  final _convos = List.generate(
-    10,
-    (i) => _Conversation(
-      name: i.isEven ? 'Ayşe K.' : 'Mert T.',
-      lastMessage: i % 3 == 0
-          ? 'Akşam görüşürüz!'
-          : i % 3 == 1
-              ? 'Fotoğrafları attım.'
-              : 'Tamamdır, teşekkürler 🙏',
-      time: i == 0 ? 'Şimdi' : (i < 3 ? '${i * 5} dk' : 'Dün'),
-      unread: i % 4 == 1 ? 2 : 0,
-      typing: i == 0, // örnek: biri yazıyor
-    ),
-  );
-
-  String _query = '';
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final filtered = _convos
-        .where((c) =>
-            c.name.toLowerCase().contains(_query.toLowerCase()) ||
-            c.lastMessage.toLowerCase().contains(_query.toLowerCase()))
-        .toList();
+    //final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,22 +45,6 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 }
 
-class _Conversation {
-  _Conversation({
-    required this.name,
-    required this.lastMessage,
-    required this.time,
-    required this.unread,
-    this.typing = false,
-  });
-
-  final String name;
-  final String lastMessage;
-  final String time;
-  final int unread;
-  final bool typing;
-}
-
 class _ConversationsList extends StatefulWidget {
   const _ConversationsList();
 
@@ -95,7 +57,7 @@ class _ConversationsListState extends State<_ConversationsList> {
   List<ConversationOverview> _items = [];
   bool _loading = true;
   RealtimeChannel? _messagesChannel;
-  String get _uid => Supabase.instance.client.auth.currentUser!.id;
+  //String get _uid => Supabase.instance.client.auth.currentUser!.id;
 
   @override
   void initState() {
